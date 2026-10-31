@@ -7,7 +7,6 @@ not repeat 36 descriptions per result.
 from __future__ import annotations
 
 import json
-import os
 
 from .model import CRITICAL, HIGH, INFO, LOW, MEDIUM, Finding, Report
 
@@ -49,7 +48,13 @@ def _rules(report: Report) -> tuple[list[dict], dict[str, int]]:
 
 
 def _uri(path: str) -> str:
-    return path.replace(os.sep, "/")
+    """SARIF artifact URIs are forward-slash on every platform.
+
+    Replacing `os.sep` only fixes the separator of the machine that produced
+    the report, so a Windows-style path scanned on Linux kept its backslashes
+    and GitHub could not resolve the artifact. Normalise both.
+    """
+    return path.replace("\\", "/")
 
 
 def _result(report: Report, finding: Finding, index_of: dict[str, int]) -> dict:
