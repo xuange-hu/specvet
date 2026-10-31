@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install (zero runtime dependencies)
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          # pytest is a dev tool, not a dependency: the zero-dependency promise
+          # is about what `pip install specvet` drags in, and the check below
+          # proves that. Not installing it made `python -m pytest` exit 1 on
+          # every matrix leg and turned the badge red for a week.
+          python -m pip install pytest
+          python -c "import specvet, sys; print('imported with deps:', [m for m in sys.modules if m in ('yaml','click','rich','requests')])"
+          python -c "
+          import subprocess, sys
+          mods = subprocess.run([sys.executable, '-c', 'import specvet.cli'], capture_output=True)
+          assert mods.returncode == 0, mods.stderr.decode()
+          print('cli imports cleanly with no third-party packages installed')
+          "
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: CLI smoke
+        run: |
+          specvet --version
+          specvet rules | head -5
+          specvet demo > /tmp/demo.yaml
+          specvet scan /tmp/demo.yaml --fail-on none
+          specvet coverage /tmp/demo.yaml
+
+      - name: MCP manifest check
+        run: |
+          python -m pip install ".[mcp]"
+          python -c "
+          from specvet.mcp_server import build_server
+          import asyncio
+          s = build_server()
+          async def go():
+              tools = await s.list_tools()
+              names = sorted(t.name for t in tools)
+              assert names == sorted(['specvet_scan','specvet_scan_text','specvet_rules','specvet_explain','specvet_coverage','specvet_demo']), names
+              print('mcp tools:', names)
+          asyncio.run(go())
+          "
+
+  fresh-clone:
+    # Every other job installs the package before testing, which is exactly
+    # why a broken `pytest` on a bare clone goes unnoticed: the src/ layout
+    # needs the root conftest.py to put src/ on sys.path. Install pytest and
+    # nothing else, then let the suite bootstrap itself.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.12'
+
+      - name: pytest only, no package install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install pytest
+
+      - name: A bare clone can run its own tests
+        run: python -m pytest -q
+
+      - name: And the CLI still works from src
+        run: python -c "import sys; sys.path.insert(0, 'src'); import specvet.cli; print('cli ok')"
+
+  demo-contract:
+    # The demo is the first thing a visitor runs. If a rule drifts out of the
+    # demo corpus, the product silently advertises less than it does.
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.12'
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e . pytest
+      - name: The demo triggers every rule
+        run: |
+          specvet demo --scan > /tmp/report.txt
+          for id in $(seq -f "SPV%03g" 1 36); do
+            grep -q "$id" /tmp/report.txt || { echo "::error::$id is missing from the demo report"; exit 1; }
+          done
+          echo "all 36 rules present in the demo report"
+
+  badge-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065  # v5
+        with:
+          python-version: '3.12'
+      # Everything the test suite can exercise must be installed here, otherwise
+      # self-skipping modules make the real count environment-dependent.
+      - name: Install with optional test deps
+        run: |
+          python -m pip install -e ".[mcp]" pytest pyyaml
+      - name: README test-count badge vs pytest collection
+        run: |
+          # -o addopts= neutralises a project-level addopts="-q": with the -q
+          # below it becomes -qq and pytest -qq drops the "N tests collected".
+          actual=$(python -m pytest --collect-only -q -o addopts= 2>/dev/null | grep -oE "[0-9]+ tests? collected" | grep -oE "^[0-9]+" || true)
+          claimed=$(grep -oE "tests-[0-9]+%20passing" README.md | grep -oE "[0-9]+" | head -1 || true)
+          echo "collected=${actual:-NOTHING} claimed=${claimed:-NONE}"
+          if [ -z "$actual" ]; then
+            echo "::warning::pytest collected nothing - the badge check did not run"
+          elif [ "$actual" != "$claimed" ]; then
+            echo "::warning::README badge says $claimed but pytest collects $actual"
+          fi

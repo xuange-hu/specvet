@@ -1,0 +1,91 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "specvet"
+version = "0.1.0"
+description = "Deterministic security review for OpenAPI and Swagger documents — 36 rules mapped to the OWASP API Top 10 2023, zero dependencies, SARIF for CI."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "xuange-hu" }]
+# Core stays dependency-free on purpose: an API-spec gate runs in slim
+# containers and on runners with no package index. The scanner must work
+# where `pip install` is the hard part.
+dependencies = []
+keywords = [
+  "openapi",
+  "swagger",
+  "api-security",
+  "owasp",
+  "static-analysis",
+  "sarif",
+  "devsecops",
+  "linter",
+  "spec",
+  "mcp",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Intended Audience :: Information Technology",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Topic :: Security",
+  "Topic :: Software Development :: Quality Assurance",
+]
+
+[project.optional-dependencies]
+# mcp 2.x renamed FastMCP -> MCPServer and moved it; this server targets 1.x.
+mcp = ["mcp>=1.2,<2"]
+
+[project.urls]
+Homepage = "https://github.com/xuange-hu/specvet"
+Repository = "https://github.com/xuange-hu/specvet"
+Issues = "https://github.com/xuange-hu/specvet/issues"
+
+[project.scripts]
+specvet = "specvet.cli:main"
+specvet-mcp = "specvet.mcp_server:main"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 130
+target-version = "py310"
+
+[tool.ruff.lint]
+select = [
+  "E",
+  "F",
+  "W",
+  "I",
+  "B",
+  "C4",
+  "UP",
+  "SIM",
+  "PL",
+  "RUF",
+]
+# PLC0415: the demo and the MCP facade import lazily on purpose, so the
+# zero-dependency core stays importable without the optional extra.
+# PLR0911/PLR0917: a CLI dispatcher and a finding factory are allowed to be
+# wide; splitting either would make them harder to read, not easier.
+ignore = ["PLR0911", "PLR0912", "PLR0913", "PLR0915", "PLR0917", "PLR2004", "RUF001", "PLC0415"]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E501", "PLR2004", "PLW2901"]
