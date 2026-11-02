@@ -189,6 +189,11 @@ Python 3.10+. No runtime dependencies — the YAML and JSON readers are part of
 the package, which is why `pip install specvet` adds nothing to your
 environment.
 
+> **PyPI status.** The `Publish` job is red for one known reason: PyPI Trusted
+> Publishing has to be registered once in the PyPI UI before the first upload
+> can succeed, and that step is still pending. The tool itself is unaffected —
+> the `git clone` line above works today.
+
 ## Design notes
 
 * **Zero dependencies is a feature, not an accident.** A contract gate runs in
