@@ -134,6 +134,11 @@ def _optional_test_deps_present() -> bool:
     """
     import importlib.util
 
+    if sys.version_info < (3, 11):
+        # tests/test_pytoml_parity.py skips wholesale without tomllib (3.11+),
+        # so a 3.10 leg collects fewer items than the badge claims. A count
+        # mismatch there is an artifact of the interpreter, not drift.
+        return False
     return all(importlib.util.find_spec(name) is not None for name in ("mcp", "yaml"))
 
 
