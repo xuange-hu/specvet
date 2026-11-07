@@ -1,5 +1,7 @@
 # specvet
 
+[中文说明 / Chinese README](README_CN.md)
+
 [![tests](https://img.shields.io/badge/tests-307%20passing-brightgreen)](https://github.com/xuange-hu/specvet/actions/workflows/ci.yml)
 [![python](https://img.shields.io/badge/python-3.10%20%7C%203.11%20%7C%203.12%20%7C%203.13-blue)](https://www.python.org/)
 [![dependencies](https://img.shields.io/badge/dependencies-0-brightgreen)](https://github.com/xuange-hu/specvet/blob/main/pyproject.toml)
