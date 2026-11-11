@@ -44,6 +44,20 @@ CRITICAL  SPV002  Object path readable without authentication  [API1:2023]
 
 ---
 
+## Contents
+
+- [Three steps](#three-steps)
+- [Why another API linter](#why-another-api-linter)
+- [Rules](#rules)
+- [Usage](#usage)
+  - [Suppressions](#suppressions)
+  - [CI](#ci)
+  - [MCP](#mcp)
+- [Install](#install)
+- [Design notes](#design-notes)
+- [Contributing](#contributing)
+- [License](#license)
+
 ## Three steps
 
 ```bash
