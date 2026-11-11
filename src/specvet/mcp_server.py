@@ -176,7 +176,6 @@ def build_server():
 
     mcp = FastMCP(name="specvet")
 
-    @mcp.tool(name="specvet_scan")
     def specvet_scan_tool(
         path: str = ".",
         min_severity: str = "info",
@@ -185,7 +184,6 @@ def build_server():
     ) -> str:
         return specvet_scan(path, min_severity, ignore, max_findings)
 
-    @mcp.tool(name="specvet_scan_text")
     def specvet_scan_text_tool(
         text: str,
         path: str = "<memory>",
@@ -195,21 +193,31 @@ def build_server():
     ) -> str:
         return specvet_scan_text(text, path, min_severity, ignore, max_findings)
 
-    @mcp.tool(name="specvet_rules")
     def specvet_rules_tool(severity: str = "", owasp: str = "") -> str:
         return specvet_rules(severity, owasp)
 
-    @mcp.tool(name="specvet_explain")
     def specvet_explain_tool(rule_id: str) -> str:
         return specvet_explain(rule_id)
 
-    @mcp.tool(name="specvet_coverage")
     def specvet_coverage_tool(path: str) -> str:
         return specvet_coverage(path)
 
-    @mcp.tool(name="specvet_demo")
     def specvet_demo_tool(max_findings: int = 40) -> str:
         return specvet_demo(max_findings)
+
+    # FastMCP reads fn.__doc__ at registration time, so copy the underlying
+    # docstring onto each wrapper *before* mcp.tool() runs - the manifest
+    # promises these descriptions and an empty one is useless to an agent.
+    for name, wrapper, fn in (
+        ("specvet_scan", specvet_scan_tool, specvet_scan),
+        ("specvet_scan_text", specvet_scan_text_tool, specvet_scan_text),
+        ("specvet_rules", specvet_rules_tool, specvet_rules),
+        ("specvet_explain", specvet_explain_tool, specvet_explain),
+        ("specvet_coverage", specvet_coverage_tool, specvet_coverage),
+        ("specvet_demo", specvet_demo_tool, specvet_demo),
+    ):
+        wrapper.__doc__ = fn.__doc__
+        mcp.tool(name=name)(wrapper)
 
     return mcp
 
